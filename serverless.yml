@@ -1,0 +1,46 @@
+org: yasardesigns
+service: notification-service
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: 'us-east-1'
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "ses:SendEmail"
+        - "ses:SendRawEmail"
+      Resource: arn:aws:ses:us-east-1:*:*
+    - Effect: "Allow"
+      Action:
+        - "sqs:SendMessage"
+        - "sqs:ReceiveMessage"
+        - "sqs:DeleteMessage"
+        - "sqs:GetQueueAttributes"
+      Resource:
+        - arn:aws:sqs:${self:provider.region}:*:${self:custom.mailQueue.name}
+
+functions:
+  sendMail:
+    handler: src/handlers/sendMail.handler
+    events:
+      - sqs:
+          arn: ${self:custom.mailQueue.arn}
+          batchSize: 1
+
+custom:
+  mailQueue:
+    name: myMailQueue
+    arn: !GetAtt MailQueue.Arn
+    url: !Ref MailQueue
+
+resources:
+  Resources:
+    MailQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.mailQueue.name}
+  Outputs:
+    MailQueueArn: ${file(resources/MailQueue.yml):Outputs.MailQueueArn}
+    MailQueueUrl: ${file(resources/MailQueue.yml):Outputs.MailQueueUrl}
+
